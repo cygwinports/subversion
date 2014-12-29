@@ -1,0 +1,25 @@
+Create directories in build tree.
+
+From: David Rothenberger <d.rothenberger@entomo.com>
+
+
+---
+ configure.ac |    5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/configure.ac b/configure.ac
+index e93d7a3..5f6e0d3 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -1508,6 +1508,11 @@ AC_DEFINE_UNQUOTED([SVN_BUILD_TARGET], "${target}",
+                    [Defined to the config.guess name of the build target])
+ 
+ AC_OUTPUT
++if test "$abs_srcdir" != "$abs_builddir"
++then
++  AC_MSG_NOTICE([Creating build directories])
++  (cd "$abs_srcdir"; find subversion tools contrib -type d) | xargs $MKDIR
++fi
+ 
+ # ==== Print final messages to user ==========================================
+ 

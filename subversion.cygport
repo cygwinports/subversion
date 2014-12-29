@@ -1,0 +1,243 @@
+inherit perl python ruby
+
+NAME="subversion"
+VERSION=1.8.10
+RELEASE=2
+CATEGORY="Devel"
+SUMMARY="A version control system"
+DESCRIPTION="Subversion is a version control system that aims to be a
+compelling replacement for CVS in the open source community"
+HOMEPAGE="http://subversion.apache.org/"
+SRC_URI="
+	mirror://apache/subversion/subversion-${VERSION}.tar.bz2
+	mirror://apache/subversion/subversion-${VERSION}.tar.bz2.asc
+"
+PATCH_URI="
+	01-make-build-directories.patch
+	02-fix-linking.patch
+	03-fix-linking-perl.patch
+	04-fix-switch-tests.patch
+	05-retry-loop.patch
+	06-svnadmin-binary-mode.patch
+	07-fix-path-tests.patch
+	08-ruby-test-fix.patch
+	09-wincrypt.patch
+	10-perl-vendors.patch
+	11-XFAIL-case-sensitive-move-tests.patch
+	12-fix-svnlook-test.patch
+	13-dso_open.patch
+	14-fix_svnauthz_tests.patch
+	15-XFAIL_case_sensitive_tree_conflict.patch
+	16-XFAIL_sqlite3_temp_table_tests.patch
+"
+
+PKG_NAMES="${NAME} ${NAME}-perl ${NAME}-python ${NAME}-devel ${NAME}-ruby ${NAME}-gnome ${NAME}-tools ${NAME}-apache2"
+subversion_CONTENTS="
+	--exclude=cygsvn_swig_*.dll --exclude=cygsvn_auth_gnome_keyring-*.dll
+	--exclude=fsfs-* --exclude=svn*-*.exe --exclude=svnmucc*
+	--exclude=svnraisetreeconflict*
+	--exclude=svn2cl.1.gz --exclude=svnwrap.1.gz --exclude=svn*-*.1.gz
+	--exclude=svn_*.1.gz --exclude=SVN.*
+	etc/ usr/bin/*.dll usr/bin/svn*.exe usr/share/
+"
+subversion_devel_SUMMARY="$SUMMARY (C headers and import libraries)"
+subversion_devel_CONTENTS='--exclude=libsvn_auth_* --exclude=libsvn_swig_* usr/include usr/lib/libsvn_*'
+
+subversion_gnome_SUMMARY="$SUMMARY (GNOME keyring plugin)"
+subversion_gnome_CATEGORY="${CATEGORY} Libs Gnome"
+subversion_gnome_CONTENTS='usr/bin/cygsvn_auth_gnome_keyring*.dll'
+
+subversion_perl_SUMMARY="$SUMMARY (perl bindings)"
+subversion_perl_CATEGORY="${CATEGORY} Libs"
+subversion_perl_CONTENTS='usr/lib/perl5 usr/bin/cygsvn_swig_perl*.dll usr/share/man/man3/SVN.*'
+
+subversion_python_SUMMARY="$SUMMARY (python bindings)"
+subversion_python_CATEGORY="${CATEGORY} Libs"
+subversion_python_CONTENTS='usr/lib/python* usr/bin/cygsvn_swig_py*.dll'
+
+subversion_ruby_SUMMARY="$SUMMARY (ruby bindings)"
+subversion_ruby_CATEGORY="${CATEGORY} Libs"
+subversion_ruby_CONTENTS='usr/lib/ruby usr/bin/cygsvn_swig_ruby*.dll'
+
+subversion_tools_SUMMARY="$SUMMARY (miscellaneous tools)"
+subversion_tools_CONTENTS="usr/bin/fsfs-*.exe usr/bin/svn*-*.exe
+	usr/bin/svnmucc.exe usr/bin/svnraisetreeconflict.exe
+	usr/share/man/man1/svnmucc.1*"
+
+subversion_apache2_CATEGORY="${CATEGORY} Net Web"
+subversion_apache2_SUMMARY="$SUMMARY (Apache 2 modules)"
+subversion_apache2_CONTENTS='usr/lib/apache2'
+
+DIFF_EXCLUDES='bindings configure build build-outputs.mk libtool.m4 svn_private_config.h.in gen-make.opts rep-cache-db.h .git'
+DIFF_EXCLUDES+=' internal_statements.h wc-queries.h'
+
+CYGCONF_ARGS="
+	--enable-shared --disable-static
+	--disable-mod-activation
+	--enable-disallowing-of-undefined-references
+	--enable-local-library-preloading
+	--with-serf=/usr
+	--with-berkeley-db${ARCH_i686+=db.h:/usr/include/db4.8:/usr/lib:db-4.8}
+	--with-gnome-keyring
+	--with-apache-libexecdir=/usr/lib/apache2
+	--with-ruby-sitedir=${RUBY_VENDORARCH}
+	svn_cv_ruby_sitedir_libsuffix=
+	svn_cv_ruby_sitedir_archsuffix=
+"
+
+DEPEND="autoconf autoconf2.5 file libapr1-devel libaprutil1-devel apache2-devel"
+DEPEND+=" pkgconfig(expat) libneon-devel libsasl2-devel libserf1-devel"
+DEPEND+=" libsqlite3-devel libtool libuuid-devel"
+DEPEND+=" perl python ruby swig zlib-devel"
+DEPEND+=" binutils"
+DEPEND+=" libgnome-keyring-devel pkg-config"
+# Required for tests
+DEPEND+=" time"
+DEPEND+=" libiconv openldap-devel"
+if defined ARCH_i686; then
+  DEPEND+=" libdb4.2-devel libdb4.8-devel"
+else
+  DEPEND+=" libdb-devel"
+fi
+
+# Build with debugging
+if false; then
+  inform "Debugging build"
+  CFLAGS="-O0 -g"
+  CXXFLAGS="-O0 -g"
+  RESTRICT="strip debuginfo"
+  PATCH_URI+=" 99-debugging-build.patch"
+fi
+
+src_compile() {
+  # Check for problem with /usr/lib/libneon.la
+  # http://cygwin.com/ml/cygwin/2010-06/msg00491.html
+  if [ -f /usr/lib/libneon.la ] && grep -qF /usr/lib/libproxy.la /usr/lib/libneon.la >/dev/null; then
+    error "/usr/lib/libneon.la needs a fix. See http://cygwin.com/ml/cygwin/2010-06/msg00491.html"
+  fi
+
+  cd ${S}
+  ./autogen.sh || error "autogen failed"
+
+  cd ${B}
+  cygconf
+
+  inform "Generating swig bindings"
+  make -j1 clean-swig || true   # Ignore failure here
+  cygmake -j1 autogen-swig
+
+  inform "Compiling"
+  cygmake all
+
+  inform "Compiling swig bindings: ruby"
+  cygmake swig-rb LIBS="-lruby200 -lintl"
+
+  inform "Compiling swig bindings: perl"
+  cygmake swig-pl
+
+  inform "Compiling swig bindings: python"
+  cygmake swig-py swig_pydir=${PYTHON_SITELIB}/libsvn swig_pydir_extra=${PYTHON_SITELIB}/svn
+}
+
+src_install() {
+  cd ${B}
+
+  # Must install using local-install to avoid a problem with invoking
+  # the installed svnversion and getting an error about a version
+  # mismatch.
+  #cyginstall && \
+
+  { make ${MAKE_OPTS} local-install DESTDIR=${D} && \
+    make install-tools DESTDIR=${D} toolsdir=/usr/bin && \
+    make install-swig-py swig_pydir=${PYTHON_SITELIB}/libsvn swig_pydir_extra=${PYTHON_SITELIB}/svn DESTDIR=${D} && \
+    make install-swig-pl DESTDIR=${D} && \
+    make install-swig-rb DESTDIR=${D} LIBS="-lruby -lintl"; } \
+  || error "make install DESTDIR failed"
+
+  # conflicts with diffutils
+  rm -f ${D}/usr/bin/diff*
+
+  # these are internal libraries only, not API
+  rm -f ${D}/usr/lib/libsvn_{auth,swig}_*
+
+  # The regular cygport document install will install CHANGES as Changes,
+  # so install it manually with the right case first.
+  cd ${S}
+  dodoc CHANGES
+
+  # Install the bash completion files
+  insinto /etc/bash_completion.d
+  newins ${S}/tools/client-side/bash_completion svn
+  for x in svn{admin,dumpfilter,look,sync,version}
+  do
+    dosym svn /etc/bash_completion.d/${x}
+  done
+}
+
+# Runs *all* the included tests except for the mod_svn_dav
+# tests. Note that this will take a lot of time!
+src_test() {
+  # TMPDIR must be set to a Cygwin path or the Ruby tests fail
+  if [ -n "$TMPDIR" ]; then
+    TMPDIR="$(cygpath -u "$TMPDIR")"
+  else
+    TMPDIR=/tmp
+  fi
+  export TMPDIR
+
+  # The Perl tests fail if there is any component with a space in the path
+  PATH="$(echo $PATH | awk -F: '{ for(i = 1;i <= NF; ++i) { if ($i ~ / /) continue; print $i; }}' | tr -t '\n' ':')"
+  PATH=${PATH%:}
+
+  cd ${B}
+
+#  local fstypes="fsfs bdb"
+  local http_libraries="serf";
+  local fstypes="fsfs"
+
+  local failed=0
+  for fstype in $fstypes; do
+    inform "Cleaning up from previous tests (if any)"
+    make check-clean
+
+    inform "Running tests for FS_TYPE=$fstype"
+    inform ----------------------------------------------------------------------
+
+    # The perl tests will run if subversion and subversion-perl are not installed.
+    #
+    # The python tests will only run if the subversion package is installed. It
+    # doesn't matter if subversion-python is installed or not.
+    #
+    # The ruby tests will only run if subversion and subversion-ruby are installed.
+    inform "Running swig tests"
+    time make check-swig-rb CLEANUP=true FS_TYPE=$fstype || failed=1
+    time make check-swig-pl CLEANUP=true FS_TYPE=$fstype || failed=1
+    time make check-swig-py CLEANUP=true FS_TYPE=$fstype || failed=1
+    echo
+
+    inform "Running make check"
+#    which svn >/dev/null 2>&1 && error "Tests cannot be run with subversion installed."
+    time make check CLEANUP=true FS_TYPE=$fstype || failed=1
+    echo
+
+if false; then
+    inform "Running svnserveautocheck"
+#    which svn >/dev/null 2>&1 && error "Tests cannot be run with subversion installed."
+    time make svnserveautocheck CLEANUP=true FS_TYPE=$fstype || failed=1
+
+    # davautocheck requires that subversion-apache2 and apache2 are installed.
+    for http_lib in $http_libraries; do
+      inform "Running tests for HTTP_LIBRARY=$http_lib"
+      time make davautocheck CLEANUP=true FS_TYPE=$fstype HTTP_LIBRARY=$http_lib || failed=1
+    done
+fi
+  done
+
+  [ $failed -eq 1 ] && error "At least one test failed"
+}
+
+# Local Variables:
+# fill-column: 72
+# mode: sh
+# sh-indentation: 2
+# End:
