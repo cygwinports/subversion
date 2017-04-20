@@ -1,0 +1,20 @@
+# This series applies on GIT commit 192d600e2c10773ac1d418a65d1ebd5ae45bec92
+01-make-build-directories.patch
+02-fix-linking.patch
+03-fix-linking-perl.patch
+04-fix-switch-tests.patch
+05-retry-loop.patch
+06-svnadmin-binary-mode.patch
+07-fix-path-tests.patch
+08-ruby-test-fix.patch
+09-wincrypt.patch
+10-perl-vendors.patch
+11-XFAIL-case-sensitive-move-tests.patch
+12-fix-svnlook-test.patch
+13-dso_open.patch
+14-fix_svnauthz_tests.patch
+15-XFAIL_case_sensitive_tree_conflict.patch
+16-fix-swig3.patch
+17-fix-test-link.patch
+18-fix-serf-config.patch
+19-remove-contrib-from-configure.patch

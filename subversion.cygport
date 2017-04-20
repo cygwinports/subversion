@@ -1,47 +1,54 @@
-inherit perl python ruby
+NAME=subversion
+VERSION=1.9.5
+RELEASE=1
+#VERSIONS="prev:1.8.16-1 curr:${VERSION}-${RELEASE}"
 
-NAME="subversion"
-VERSION=1.8.10
-RELEASE=2
-CATEGORY="Devel"
-SUMMARY="A version control system"
-DESCRIPTION="Subversion is a version control system that aims to be a
-compelling replacement for CVS in the open source community"
+DESCRIPTION="Subversion"
 HOMEPAGE="http://subversion.apache.org/"
-SRC_URI="
-	mirror://apache/subversion/subversion-${VERSION}.tar.bz2
-	mirror://apache/subversion/subversion-${VERSION}.tar.bz2.asc
-"
-PATCH_URI="
-	01-make-build-directories.patch
-	02-fix-linking.patch
-	03-fix-linking-perl.patch
-	04-fix-switch-tests.patch
-	05-retry-loop.patch
-	06-svnadmin-binary-mode.patch
-	07-fix-path-tests.patch
-	08-ruby-test-fix.patch
-	09-wincrypt.patch
-	10-perl-vendors.patch
-	11-XFAIL-case-sensitive-move-tests.patch
-	12-fix-svnlook-test.patch
-	13-dso_open.patch
-	14-fix_svnauthz_tests.patch
-	15-XFAIL_case_sensitive_tree_conflict.patch
-	16-XFAIL_sqlite3_temp_table_tests.patch
-"
 
-PKG_NAMES="${NAME} ${NAME}-perl ${NAME}-python ${NAME}-devel ${NAME}-ruby ${NAME}-gnome ${NAME}-tools ${NAME}-apache2"
-subversion_CONTENTS="
-	--exclude=cygsvn_swig_*.dll --exclude=cygsvn_auth_gnome_keyring-*.dll
-	--exclude=fsfs-* --exclude=svn*-*.exe --exclude=svnmucc*
-	--exclude=svnraisetreeconflict*
-	--exclude=svn2cl.1.gz --exclude=svnwrap.1.gz --exclude=svn*-*.1.gz
-	--exclude=svn_*.1.gz --exclude=SVN.*
-	etc/ usr/bin/*.dll usr/bin/svn*.exe usr/share/
-"
+SRC_DIR="${P}"
+SRC_URI="
+  mirror://apache/subversion/${SRC_DIR}.tar.bz2
+  mirror://apache/subversion/${SRC_DIR}.tar.bz2.asc"
+#SRC_URI="
+#  http://archive.apache.org/dist/subversion/${P}.tar.bz2
+#  http://archive.apache.org/dist/subversion/${P}.tar.bz2.asc"
+
+#SVN_URI=http://svn.apache.org/repos/asf/subversion
+##SVN_BRANCH=tags/${PV}
+#SVN_BRANCH=tags/1.8.0-rc2
+#inherit svn
+
+inherit python
+inherit perl
+inherit ruby
+
+SRC_URI+=" series"
+
+PATCH_URI="$(grep -v '^#' series)"
+#PATCH_URI=
+
+DESCRIPTION="Subversion is a version control system that aims to be a compelling replacement for CVS in the open source community"
+SUMMARY="A version control system"
+CATEGORY=Devel
+
+PKG_NAMES="$PN subversion-perl subversion-python subversion-devel subversion-ruby subversion-gnome subversion-tools"
+
+#PKG_IGNORE='
+#usr/lib/ruby/vendor_ruby/2.2.0/usr/local/lib/ruby/site_ruby/2.2.0/svn/ext/*.dll.a
+#usr/lib/ruby/vendor_ruby/2.2.0/usr/local/lib/ruby/site_ruby/2.2.0/svn/ext/*.la
+#usr/lib/python2.7/site-packages/libsvn/*.dll.a
+#usr/lib/python2.7/site-packages/libsvn/*.la
+#'
+
+subversion_CONTENTS='--exclude=cygsvn_swig_*.dll --exclude=cygsvn_auth_gnome_keyring-*.dll --exclude=svn2cl.1.gz --exclude=svnwrap.1.gz --exclude=svn-*.1.gz --exclude=svn_*.1.gz --exclude=SVN.*  --exclude=NOTES --exclude=*.pc usr/bin/*.dll usr/bin/*.exe usr/share etc/'
+
 subversion_devel_SUMMARY="$SUMMARY (C headers and import libraries)"
-subversion_devel_CONTENTS='--exclude=libsvn_auth_* --exclude=libsvn_swig_* usr/include usr/lib/libsvn_*'
+subversion_devel_CONTENTS='usr/include usr/lib/libsvn_[a-rt-z]* usr/lib/libsvn_subr* usr/lib/libsvn_swig_* usr/share/pkgconfig'
+if defined SVN_URI; then
+  # Only in the SVN checkout
+  subversion_devel_CONTENTS+=' usr/share/doc/subversion/NOTES'
+fi
 
 subversion_gnome_SUMMARY="$SUMMARY (GNOME keyring plugin)"
 subversion_gnome_CATEGORY="${CATEGORY} Libs Gnome"
@@ -60,45 +67,62 @@ subversion_ruby_CATEGORY="${CATEGORY} Libs"
 subversion_ruby_CONTENTS='usr/lib/ruby usr/bin/cygsvn_swig_ruby*.dll'
 
 subversion_tools_SUMMARY="$SUMMARY (miscellaneous tools)"
-subversion_tools_CONTENTS="usr/bin/fsfs-*.exe usr/bin/svn*-*.exe
-	usr/bin/svnmucc.exe usr/bin/svnraisetreeconflict.exe
-	usr/share/man/man1/svnmucc.1*"
-
-subversion_apache2_CATEGORY="${CATEGORY} Net Web"
-subversion_apache2_SUMMARY="$SUMMARY (Apache 2 modules)"
-subversion_apache2_CONTENTS='usr/lib/apache2'
+subversion_tools_REQUIRES="bash perl python subversion-perl"
+subversion_tools_CONTENTS='usr/bin/svn-tools'
 
 DIFF_EXCLUDES='bindings configure build build-outputs.mk libtool.m4 svn_private_config.h.in gen-make.opts rep-cache-db.h .git'
 DIFF_EXCLUDES+=' internal_statements.h wc-queries.h'
+DIFF_EXCLUDES+=' config_keys.inc errorcode.inc libsvn_subr.pc.in wc-test-queries.h'
 
-CYGCONF_ARGS="
-	--enable-shared --disable-static
-	--disable-mod-activation
-	--enable-disallowing-of-undefined-references
-	--enable-local-library-preloading
-	--with-serf=/usr
-	--with-berkeley-db${ARCH_i686+=db.h:/usr/include/db4.8:/usr/lib:db-4.8}
-	--with-gnome-keyring
-	--with-apache-libexecdir=/usr/lib/apache2
-	--with-ruby-sitedir=${RUBY_VENDORARCH}
-	svn_cv_ruby_sitedir_libsuffix=
-	svn_cv_ruby_sitedir_archsuffix=
-"
+CYGCONF_ARGS="--enable-shared --disable-static"
+CYGCONF_ARGS+=" --disable-mod-activation"
+CYGCONF_ARGS+=" --enable-disallowing-of-undefined-references"
+CYGCONF_ARGS+=" --enable-local-library-preloading"
+CYGCONF_ARGS+=" --with-serf=/usr"
+CYGCONF_ARGS+=" --with-berkeley-db"
+CYGCONF_ARGS+=" --with-gnome-keyring"
+CYGCONF_ARGS+=" --with-apache-libexecdir=/usr/lib/httpd/modules"
+CYGCONF_ARGS+=" --with-ruby-sitedir=${RUBY_VENDORARCH}"
 
-DEPEND="autoconf autoconf2.5 file libapr1-devel libaprutil1-devel apache2-devel"
-DEPEND+=" pkgconfig(expat) libneon-devel libsasl2-devel libserf1-devel"
+DEPEND="autoconf autoconf2.5 file libapr1-devel libaprutil1-devel httpd-devel "
+DEPEND+=" pkgconfig(expat) libsasl2-devel libserf1-devel"
 DEPEND+=" libsqlite3-devel libtool libuuid-devel"
-DEPEND+=" perl python ruby swig zlib-devel"
+DEPEND+=" perl python python-devel ruby ruby-devel swig zlib-devel"
 DEPEND+=" binutils"
 DEPEND+=" libgnome-keyring-devel pkg-config"
+DEPEND+=" libdb-devel"
+
 # Required for tests
 DEPEND+=" time"
-DEPEND+=" libiconv openldap-devel"
+
 if defined ARCH_i686; then
-  DEPEND+=" libdb4.2-devel libdb4.8-devel"
+  DEPEND+=" libiconv openldap-devel gcc4-core w32api"
 else
-  DEPEND+=" libdb-devel"
+  DEPEND+=" libiconv-devel gcc-core w32api-headers"
 fi
+
+# Uncomment this section to build the apache2 module and package as subversion-httpd
+INCLUDE_APACHE_MODULE=1
+if defined INCLUDE_APACHE_MODULE; then
+  PKG_NAMES+=" subversion-httpd"
+  subversion_httpd_CONTENTS='usr/lib/httpd/modules'
+  subversion_httpd_SUMMARY="$SUMMARY (Apache 2 modules)"
+  subversion_httpd_CATEGORY="${CATEGORY} Net Web"
+else
+  CYGCONF_ARGS+=" --without-apxs"
+fi
+
+#MAKEOPTS=-j1
+
+# Subversion 1.9 builds with -std=c90.
+# But it is not possible to compile against apr-util with APU_WANT_DB
+# with this switch alone because apr-util uses u_int, which is not
+# defined in strict ansi mode (enabled by c90). So add _DEFAULT_SOURCE=1
+# to also include the BSD types required for compiling against apr-util.
+#
+# Note that this isn't really a problem with subversion of apr-util, but
+# ultimately a problem with the Berkeley DB sources.
+CFLAGS="${CFLAGS} -D_DEFAULT_SOURCE=1"
 
 # Build with debugging
 if false; then
@@ -109,34 +133,39 @@ if false; then
   PATCH_URI+=" 99-debugging-build.patch"
 fi
 
-src_compile() {
-  # Check for problem with /usr/lib/libneon.la
-  # http://cygwin.com/ml/cygwin/2010-06/msg00491.html
-  if [ -f /usr/lib/libneon.la ] && grep -qF /usr/lib/libproxy.la /usr/lib/libneon.la >/dev/null; then
-    error "/usr/lib/libneon.la needs a fix. See http://cygwin.com/ml/cygwin/2010-06/msg00491.html"
-  fi
+# Regenerate the SWIG bindings.
+src_gen_swig() {
+  make ${MAKEOPTS} "$@" clean-swig || true   # Ignore failure here
+  make ${MAKEOPTS} "$@" autogen-swig
+}
 
+# Compile the SWIG bindings.
+src_compile_swig() {
+  inform "Compiling swig bindings: ruby"
+  make ${MAKEOPTS} "$@" swig-rb LIBS="-lruby220 -lintl" || error "ruby swig bindings failed"
+
+  inform "Compiling swig bindings: perl"
+  make ${MAKEOPTS} "$@" swig-pl || error "perl swig bindings failed"
+
+  inform "Compiling swig bindings: python"  
+  make ${MAKEOPTS} "$@" swig-py swig_pydir=${PYTHON_SITELIB}/libsvn swig_pydir_extra=${PYTHON_SITELIB}/svn || error "python swig bindings failed"
+}
+
+src_compile() {
   cd ${S}
   ./autogen.sh || error "autogen failed"
 
   cd ${B}
-  cygconf
+  cygconf || error "configure failed"
 
   inform "Generating swig bindings"
-  make -j1 clean-swig || true   # Ignore failure here
-  cygmake -j1 autogen-swig
+  src_gen_swig -j1 || error "swig generation failed"
 
   inform "Compiling"
-  cygmake all
+  cygmake all || error "make failed"
 
-  inform "Compiling swig bindings: ruby"
-  cygmake swig-rb LIBS="-lruby200 -lintl"
-
-  inform "Compiling swig bindings: perl"
-  cygmake swig-pl
-
-  inform "Compiling swig bindings: python"
-  cygmake swig-py swig_pydir=${PYTHON_SITELIB}/libsvn swig_pydir_extra=${PYTHON_SITELIB}/svn
+  inform "Compiling swig bindings"
+  src_compile_swig -j1 || error "swig compilation failed"
 }
 
 src_install() {
@@ -148,30 +177,23 @@ src_install() {
   #cyginstall && \
 
   { make ${MAKE_OPTS} local-install DESTDIR=${D} && \
-    make install-tools DESTDIR=${D} toolsdir=/usr/bin && \
+    make install-tools DESTDIR=${D} && \
     make install-swig-py swig_pydir=${PYTHON_SITELIB}/libsvn swig_pydir_extra=${PYTHON_SITELIB}/svn DESTDIR=${D} && \
     make install-swig-pl DESTDIR=${D} && \
     make install-swig-rb DESTDIR=${D} LIBS="-lruby -lintl"; } \
   || error "make install DESTDIR failed"
 
-  # conflicts with diffutils
-  rm -f ${D}/usr/bin/diff*
+  perl_postinst
 
-  # these are internal libraries only, not API
-  rm -f ${D}/usr/lib/libsvn_{auth,swig}_*
-
-  # The regular cygport document install will install CHANGES as Changes,
+  # The regular cygport document install will install CHANGES as Changes, 
   # so install it manually with the right case first.
   cd ${S}
   dodoc CHANGES
 
   # Install the bash completion files
   insinto /etc/bash_completion.d
-  newins ${S}/tools/client-side/bash_completion svn
-  for x in svn{admin,dumpfilter,look,sync,version}
-  do
-    dosym svn /etc/bash_completion.d/${x}
-  done
+  doins ${S}/tools/client-side/bash_completion
+  mv ${D}/etc/bash_completion.d/bash_completion ${D}/etc/bash_completion.d/svn
 }
 
 # Runs *all* the included tests except for the mod_svn_dav
@@ -219,17 +241,33 @@ src_test() {
 #    which svn >/dev/null 2>&1 && error "Tests cannot be run with subversion installed."
     time make check CLEANUP=true FS_TYPE=$fstype || failed=1
     echo
-
+    
 if false; then
     inform "Running svnserveautocheck"
 #    which svn >/dev/null 2>&1 && error "Tests cannot be run with subversion installed."
     time make svnserveautocheck CLEANUP=true FS_TYPE=$fstype || failed=1
 
-    # davautocheck requires that subversion-apache2 and apache2 are installed.
-    for http_lib in $http_libraries; do
-      inform "Running tests for HTTP_LIBRARY=$http_lib"
-      time make davautocheck CLEANUP=true FS_TYPE=$fstype HTTP_LIBRARY=$http_lib || failed=1
-    done
+    if defined INCLUDE_APACHE_MODULE; then
+      # davautocheck requires that subversion-httpd and httpd are installed.
+      for http_lib in $http_libraries; do
+        inform "Running tests for HTTP_LIBRARY=$http_lib"
+        time make davautocheck CLEANUP=true FS_TYPE=$fstype HTTP_LIBRARY=$http_lib || failed=1
+      done
+    else
+      :
+      # These tests can only be run if a separate native httpd / svn
+      # server is setup. See subversion/tests/cmdline/README for more
+      # information.
+      #
+      # Even when such a server is setup, some tests still fail
+      # because the hooks created by the testing infrastructure use
+      # shebang syntax to invoke python, which doesn't work with the
+      # native installation.
+#      for http_lib in $http_libraries; do
+#        inform "Running tests for HTTP_LIBRARY=$http_lib"
+#        time make davcheck CLEANUP=true FS_TYPE=$fstype HTTP_LIBRARY=$http_lib || failed=1
+#      done
+    fi
 fi
   done
 
