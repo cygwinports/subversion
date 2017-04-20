@@ -57,7 +57,7 @@ index 4f020da..a22bdaf 100644
  
 +[httpd]
 +type = lib
-+external-lib = -lhttpd
++external-lib = -lmod_dav -lhttpd
 +libs = aprutil apr
 +
  [python]
